@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gymcore-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gymcore
+      POSTGRES_PASSWORD: gymcore123
+      POSTGRES_DB: gymcore
+    ports:
+      - "5433:5432"
+    volumes:
+      - gymcore_pgdata:/var/lib/postgresql/data
+
+volumes:
+  gymcore_pgdata:

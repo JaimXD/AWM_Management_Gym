@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  ADMIN
+  TRAINER
+}
+
+enum Difficulty {
+  PRINCIPIANTE
+  INTERMEDIO
+  AVANZADO
+}
+
+enum MemberStatus {
+  ACTIVO
+  INACTIVO
+}
+
+model Role {
+  id    Int      @id @default(autoincrement())
+  name  RoleName @unique
+  users User[]
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  roleId    Int
+  role      Role     @relation(fields: [roleId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Member {
+  id        Int          @id @default(autoincrement())
+  firstName String
+  lastName  String
+  cedula    String       @unique
+  email     String
+  phone     String
+  status    MemberStatus @default(ACTIVO)
+  createdAt DateTime     @default(now())
+  workouts  Workout[]
+}
+
+model Exercise {
+  id            Int             @id @default(autoincrement())
+  name          String
+  muscleGroup   String
+  difficulty    Difficulty
+  description   String
+  imageUrl      String?
+  active        Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  workoutItems  WorkoutExercise[]
+}
+
+model Workout {
+  id        Int               @id @default(autoincrement())
+  name      String
+  memberId  Int
+  member    Member            @relation(fields: [memberId], references: [id])
+  createdAt DateTime          @default(now())
+  items     WorkoutExercise[]
+}
+
+model WorkoutExercise {
+  id         Int      @id @default(autoincrement())
+  workoutId  Int
+  exerciseId Int
+  sets       Int
+  reps       Int
+  weight     Float
+  workout    Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+}
+
+model Class {
+  id         Int      @id @default(autoincrement())
+  name       String
+  instructor String
+  date       DateTime
+  capacity   Int
+  booked     Int      @default(0)
+  createdAt  DateTime @default(now())
+}
