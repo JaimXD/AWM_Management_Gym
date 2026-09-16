@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "MemberEmailVerification" ADD COLUMN     "sendCount" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "windowStartedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
