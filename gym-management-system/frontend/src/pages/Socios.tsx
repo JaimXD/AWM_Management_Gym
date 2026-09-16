@@ -4,6 +4,8 @@ import api from "../api/axios";
 import Modal from "../components/Modal";
 import Toast from "../components/Toast";
 import { useToast } from "../components/useToast";
+import { isAxiosError } from "axios";
+import EmailVerificationModal from "../components/EmailVerificationModal";
 
 interface Member {
   id: number;
@@ -11,8 +13,22 @@ interface Member {
   lastName: string;
   cedula: string;
   email: string;
+  emailVerifiedAt: string | null;
   phone: string;
   status: "ACTIVO" | "INACTIVO";
+}
+
+interface CreateMemberResponse extends Member {
+  emailVerification?: {
+    delivery: "accepted" | "unconfirmed";
+    message: string;
+  };
+}
+
+interface VerificationState {
+  member: Member;
+  message: string;
+  wait: boolean;
 }
 
 const emptyForm = {
@@ -32,6 +48,8 @@ export default function Socios() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const { toast, showToast, clearToast } = useToast();
+  const [verification, setVerification] =
+  useState<VerificationState | null>(null);
 
   async function loadMembers(q = "") {
     setLoading(true);
@@ -72,21 +90,70 @@ export default function Socios() {
     setModalOpen(true);
   }
 
+  function openVerification(member: Member) {
+    setVerification({
+      member,
+      message:
+        "Si ya recibiste un código vigente, introdúcelo. Si todavía no tienes uno, pulsa Enviar / reenviar código.",
+      wait: false,
+    });
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
+
     setSaving(true);
+
     try {
       if (editing) {
-        await api.put(`/members/${editing.id}`, form);
+        const { data } = await api.put<Member>(
+          `/members/${editing.id}`,
+          form
+        );
+
         showToast("success", "Socio actualizado correctamente");
+
+        // El backend invalida la verificación al cambiar el correo.
+        if (
+          data.email !== editing.email &&
+          !data.emailVerifiedAt
+        ) {
+          setVerification({
+            member: data,
+            message:
+              "El correo cambió y está pendiente de verificar. Pulsa Enviar / reenviar código para recibir uno.",
+            wait: false,
+          });
+        }
       } else {
-        await api.post("/members", form);
+        const { data } = await api.post<CreateMemberResponse>(
+          "/members",
+          form
+        );
+
         showToast("success", "Socio creado correctamente");
+
+        const accepted =
+          data.emailVerification?.delivery === "accepted";
+
+        setVerification({
+          member: data,
+          message: accepted
+            ? "Se aceptó el envío del código. Revisa tu bandeja de entrada y spam."
+            : "El socio se creó, pero no se confirmó el envío. Puedes introducir el código si llega o solicitar otro cuando termine la espera.",
+          wait: true,
+        });
       }
+
       setModalOpen(false);
-      loadMembers(search);
-    } catch (err: any) {
-      showToast("error", err.response?.data?.message || "Ocurrió un error");
+      void loadMembers(search);
+    } catch (err: unknown) {
+      const message = isAxiosError<{ message?: string }>(err)
+        ? err.response?.data?.message
+        : undefined;
+
+      showToast("error", message ?? "No se pudo guardar el socio");
     } finally {
       setSaving(false);
     }
@@ -154,7 +221,29 @@ export default function Socios() {
                       {m.firstName} {m.lastName}
                     </td>
                     <td className="py-3 pr-4 text-white/60">{m.cedula}</td>
-                    <td className="py-3 pr-4 text-white/60">{m.email}</td>
+                    <td className="py-3 pr-4">
+                      <div className="text-white/60">{m.email}</div>
+
+                      <span
+                        className={`badge mt-1 ${
+                          m.emailVerifiedAt
+                            ? "bg-brand-500/15 text-brand-400"
+                            : "bg-amber-500/15 text-amber-300"
+                        }`}
+                      >
+                        {m.emailVerifiedAt ? "Correo verificado" : "Correo pendiente"}
+                      </span>
+
+                      {!m.emailVerifiedAt && (
+                        <button
+                          type="button"
+                          onClick={() => openVerification(m)}
+                          className="mt-2 block text-xs font-medium text-brand-400 hover:underline"
+                        >
+                          Verificar correo
+                        </button>
+                      )}
+                    </td>
                     <td className="py-3 pr-4 text-white/60">{m.phone}</td>
                     <td className="py-3 pr-4">
                       <span
@@ -193,7 +282,7 @@ export default function Socios() {
         </div>
       </div>
 
-      <Modal open={modalOpen} title={editing ? "Editar socio" : "Nuevo socio"} onClose={() => setModalOpen(false)}>
+      <Modal open={modalOpen} title={editing ? "Editar socio" : "Nuevo socio"} onClose={() => {if (!saving) setModalOpen(false);}}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -254,6 +343,35 @@ export default function Socios() {
           </div>
         </form>
       </Modal>
+
+        {verification && (
+          <EmailVerificationModal
+            key={`${verification.member.id}:${verification.member.email}`}
+            member={verification.member}
+            initialMessage={verification.message}
+            initialWait={verification.wait}
+            onClose={() => {
+              setVerification(null);
+              void loadMembers(search);
+            }}
+            onVerified={(emailVerifiedAt) => {
+              const verifiedMember = verification.member;
+
+              setMembers((current) =>
+                current.map((member) =>
+                  member.id === verifiedMember.id &&
+                  member.email === verifiedMember.email
+                    ? { ...member, emailVerifiedAt }
+                    : member
+                )
+              );
+
+              setVerification(null);
+              showToast("success", "Correo verificado correctamente");
+              void loadMembers(search);
+            }}
+          />
+        )}
 
       <Toast toast={toast} onClose={clearToast} />
     </div>
