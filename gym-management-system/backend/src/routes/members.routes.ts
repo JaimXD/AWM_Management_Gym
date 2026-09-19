@@ -294,4 +294,53 @@ router.patch("/:id/status", async (req, res) => {
   }
 });
 
+
+router.delete("/:id", async (req, res) => {
+  if (req.user?.role !== "ADMIN") {
+    return res.status(403).json({
+      message: "Solo un administrador puede eliminar socios",
+    });
+  }
+
+  const id = Number(req.params.id);
+
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return res.status(400).json({
+      message: "ID de socio inválido",
+    });
+  }
+
+  try {
+    const member = await prisma.member.delete({
+      where: { id },
+    });
+
+    return res.json({
+      message: "Socio eliminado correctamente",
+      memberId: member.id,
+      email: member.email,
+    });
+  } catch (error: unknown) {
+    const code = (error as { code?: string } | null)?.code;
+
+    if (code === "P2025") {
+      return res.status(404).json({
+        message: "Socio no encontrado",
+      });
+    }
+
+    if (code === "P2003") {
+      return res.status(409).json({
+        message:
+          "El socio tiene registros relacionados que impiden eliminarlo",
+      });
+    }
+
+    return res.status(500).json({
+      message: "No se pudo eliminar el socio",
+    });
+  }
+});
+
+
 export default router;
