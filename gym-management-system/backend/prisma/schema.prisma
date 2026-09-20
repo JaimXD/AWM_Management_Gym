@@ -23,6 +23,18 @@ enum MemberStatus {
   INACTIVO
 }
 
+enum MembershipStatus {
+  ACTIVA
+  VENCIDA
+  CANCELADA
+}
+
+enum ReservationStatus {
+  RESERVADA
+  CANCELADA
+  ASISTIO
+}
+
 model Role {
   id    Int      @id @default(autoincrement())
   name  RoleName @unique
@@ -37,6 +49,7 @@ model User {
   password          String
   roleId            Int
   role              Role                   @relation(fields: [roleId], references: [id])
+  reservations      ClassReservation[]
   createdAt         DateTime               @default(now())
   tokenVersion      Int                    @default(0)
   passwordReset     PasswordReset?
@@ -57,6 +70,8 @@ model Member {
 
   account        MemberAccount?
   passwordResets MemberPasswordReset[]
+  memberships    Membership[]
+  reservations   ClassReservation[]
   workouts       Workout[]
 }
 
@@ -150,13 +165,46 @@ model WorkoutExercise {
 }
 
 model Class {
-  id         Int      @id @default(autoincrement())
-  name       String
-  instructor String
-  date       DateTime
-  capacity   Int
-  booked     Int      @default(0)
-  createdAt  DateTime @default(now())
+  id           Int                @id @default(autoincrement())
+  name         String
+  instructor   String
+  date         DateTime
+  capacity     Int
+  booked       Int                @default(0)
+  createdAt    DateTime           @default(now())
+  reservations ClassReservation[]
+}
+
+model Membership {
+  id        Int              @id @default(autoincrement())
+  memberId  Int
+  planName  String
+  startsAt  DateTime
+  expiresAt DateTime
+  status    MembershipStatus @default(ACTIVA)
+  price     Decimal          @db.Decimal(10, 2)
+  createdAt DateTime         @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, expiresAt])
+}
+
+model ClassReservation {
+  id          Int               @id @default(autoincrement())
+  classId     Int
+  memberId    Int
+  status      ReservationStatus @default(RESERVADA)
+  bookedAt    DateTime          @default(now())
+  cancelledAt DateTime?
+
+  class  Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  User   User?  @relation(fields: [userId], references: [id])
+  userId Int?
+
+  @@unique([classId, memberId])
+  @@index([memberId, status])
 }
 
 model PasswordReset {
