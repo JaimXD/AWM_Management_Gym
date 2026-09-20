@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
+
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/socios", label: "Socios", icon: Users },
@@ -17,6 +18,8 @@ const navItems = [
   { to: "/rutinas", label: "Rutinas", icon: ClipboardList },
   { to: "/clases", label: "Clases", icon: CalendarDays },
 ];
+
+
 
 export default function Layout() {
   const { user, logout } = useAuth();

@@ -8,11 +8,13 @@ import Ejercicios from "./pages/Ejercicios";
 import Rutinas from "./pages/Rutinas";
 import Clases from "./pages/Clases";
 import PasswordRecovery from "./pages/PasswordRecovery";
+import RegistrarUsuario from "./pages/RegistrarUsuario";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/registrar" element={<RegistrarUsuario />} />
       <Route
         path="/recuperar-password"
         element={<PasswordRecovery />}
