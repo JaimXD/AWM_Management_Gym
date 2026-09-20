@@ -4,6 +4,12 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 import { authMiddleware } from "../middleware/auth";
 import { rateLimit } from "express-rate-limit";
+import {
+  confirmUserEmailVerification,
+  createInitialUserEmailVerification,
+  EmailVerificationError,
+} from "../services/emailVerification.service";
+import { sendVerificationEmail } from "../services/mail.service";
 
 const router = Router();
 
@@ -32,6 +38,13 @@ router.post("/login", async (req, res) => {
 
     if (!user) {
       return res.status(401).json({ message: "Credenciales inválidas" });
+    }
+
+    if (!user.emailVerifiedAt) {
+      return res.status(403).json({
+        message: "Debes verificar tu correo antes de iniciar sesión",
+        code: "EMAIL_NOT_VERIFIED",
+      });
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
@@ -110,26 +123,39 @@ router.post("/register", registerLimiter, async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const user = await prisma.user.create({
-      data: {
-        name: name.trim(),
-        email: email.trim(),
-        password: passwordHash,
-        roleId: role.id,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: {
-          select: { name: true },
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password: passwordHash,
+          roleId: role.id,
         },
-      },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: { select: { name: true } },
+        },
+      });
+
+      const verification = await createInitialUserEmailVerification(tx, user);
+      return { user, verification };
     });
 
+    let delivery: "accepted" | "unconfirmed" = "unconfirmed";
+
+    try {
+      await sendVerificationEmail(result.verification);
+      delivery = "accepted";
+    } catch (error) {
+      console.error("No se pudo enviar la verificación de usuario:", error);
+    }
+
     return res.status(201).json({
-      message: "Usuario registrado correctamente",
-      user,
+      message: "Usuario registrado. Debes verificar tu correo antes de iniciar sesión",
+      delivery,
+      user: result.user,
     });
   } catch (error: unknown) {
     if ((error as { code?: string } | null)?.code === "P2002") {
@@ -141,6 +167,37 @@ router.post("/register", registerLimiter, async (req, res) => {
     return res.status(500).json({
       message: "No se pudo registrar el usuario",
     });
+  }
+});
+
+router.post("/verify-email", async (req, res) => {
+  const userId = Number(req.body?.userId);
+  const code = req.body?.code;
+
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return res.status(400).json({ message: "ID de usuario inválido" });
+  }
+
+  if (typeof code !== "string" || !/^\d{6}$/.test(code)) {
+    return res.status(400).json({
+      message: "El código debe ser un texto de exactamente 6 dígitos",
+    });
+  }
+
+  try {
+    const emailVerifiedAt = await confirmUserEmailVerification(userId, code);
+
+    return res.json({
+      message: "Correo verificado correctamente",
+      emailVerifiedAt,
+    });
+  } catch (error) {
+    if (error instanceof EmailVerificationError) {
+      return res.status(error.status).json({ message: error.message });
+    }
+
+    console.error("Error al verificar correo de usuario:", error);
+    return res.status(500).json({ message: "No se pudo verificar el correo" });
   }
 });
 

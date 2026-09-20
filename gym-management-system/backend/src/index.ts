@@ -9,6 +9,8 @@ import workoutsRoutes from "./routes/workouts.routes";
 import classesRoutes from "./routes/classes.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import passwordResetRoutes from "./routes/passwordReset.routes";
+import mobileAuthRoutes from "./routes/mobileAuth.routes";
+import mobileRoutes from "./routes/mobile.routes";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -31,6 +33,8 @@ app.use("/api/exercises", exercisesRoutes);
 app.use("/api/workouts", workoutsRoutes);
 app.use("/api/classes", classesRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/mobile/auth", mobileAuthRoutes);
+app.use("/api/mobile", mobileRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ message: "Ruta no encontrada" });

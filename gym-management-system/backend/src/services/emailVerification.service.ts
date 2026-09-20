@@ -292,3 +292,97 @@ export async function confirmMemberEmailVerification(
 
   return verifiedAt;
 }
+
+export async function createInitialUserEmailVerification(
+  tx: Prisma.TransactionClient,
+  user: { id: number; email: string }
+) {
+  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const codeHash = await bcrypt.hash(code, 12);
+  const expiresAt = new Date(Date.now() + CODE_EXPIRATION_MS);
+
+  await tx.userEmailVerification.create({
+    data: {
+      userId: user.id,
+      email: user.email,
+      codeHash,
+      expiresAt,
+    },
+  });
+
+  return { email: user.email, expiresAt, code };
+}
+
+export async function confirmUserEmailVerification(
+  userId: number,
+  code: string
+): Promise<Date> {
+  const verifiedAt = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      include: { emailVerification: true },
+    });
+
+    if (!user) {
+      throw new EmailVerificationError(404, "Usuario no encontrado");
+    }
+
+    if (user.emailVerifiedAt) {
+      throw new EmailVerificationError(409, "El correo ya está verificado");
+    }
+
+    const verification = user.emailVerification;
+
+    if (!verification) {
+      throw new EmailVerificationError(
+        400,
+        "No existe un código de verificación para este usuario"
+      );
+    }
+
+    if (verification.usedAt) {
+      throw new EmailVerificationError(409, "Este código ya fue utilizado");
+    }
+
+    if (verification.expiresAt.getTime() <= Date.now()) {
+      throw new EmailVerificationError(400, "El código venció");
+    }
+
+    if (verification.attempts >= MAX_CODE_ATTEMPTS) {
+      throw new EmailVerificationError(
+        429,
+        "Agotaste los 5 intentos. Solicita un nuevo código"
+      );
+    }
+
+    const matches = await bcrypt.compare(code, verification.codeHash);
+
+    if (!matches) {
+      await tx.userEmailVerification.update({
+        where: { userId },
+        data: { attempts: { increment: 1 } },
+      });
+
+      throw new EmailVerificationError(
+        400,
+        "Código incorrecto. Se contabilizó un intento fallido"
+      );
+    }
+
+    const now = new Date();
+
+    await tx.userEmailVerification.update({
+      where: { userId },
+      data: { usedAt: now },
+    });
+
+    await tx.user.update({
+      where: { id: userId },
+      data: { emailVerifiedAt: now },
+    });
+
+    return now;
+  });
+
+  return verifiedAt;
+}

@@ -30,56 +30,103 @@ model Role {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  roleId    Int
-  role      Role     @relation(fields: [roleId], references: [id])
-  createdAt DateTime @default(now())
-  tokenVersion  Int            @default(0)
-  passwordReset PasswordReset?
+  id                Int                    @id @default(autoincrement())
+  name              String
+  email             String                 @unique
+  emailVerifiedAt   DateTime?
+  password          String
+  roleId            Int
+  role              Role                   @relation(fields: [roleId], references: [id])
+  createdAt         DateTime               @default(now())
+  tokenVersion      Int                    @default(0)
+  passwordReset     PasswordReset?
+  emailVerification UserEmailVerification?
 }
 
 model Member {
-  id        Int          @id @default(autoincrement())
-  firstName String
-  lastName  String
-  cedula    String       @unique
-  email     String
-  emailVerifiedAt DateTime?
+  id                Int                      @id @default(autoincrement())
+  firstName         String
+  lastName          String
+  cedula            String                   @unique
+  email             String
+  emailVerifiedAt   DateTime?
   emailVerification MemberEmailVerification?
-  phone     String
-  status    MemberStatus @default(ACTIVO)
-  createdAt DateTime     @default(now())
-  workouts  Workout[]
+  phone             String
+  status            MemberStatus             @default(ACTIVO)
+  createdAt         DateTime                 @default(now())
+
+  account        MemberAccount?
+  passwordResets MemberPasswordReset[]
+  workouts       Workout[]
 }
 
 model MemberEmailVerification {
-  id           String    @id @default(cuid())
-  memberId     Int       @unique
-  email        String
-  codeHash     String
-  expiresAt    DateTime
-  attempts     Int       @default(0)
-  usedAt       DateTime?
-  createdAt    DateTime  @default(now())
+  id              String    @id @default(cuid())
+  memberId        Int       @unique
+  email           String
+  codeHash        String
+  expiresAt       DateTime
+  attempts        Int       @default(0)
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
   windowStartedAt DateTime  @default(now())
   sendCount       Int       @default(1)
 
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
+model MemberAccount {
+  id           Int      @id @default(autoincrement())
+  memberId     Int      @unique
+  passwordHash String
+  tokenVersion Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  member         Member                @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  passwordResets MemberPasswordReset[]
+}
+
+model MemberPasswordReset {
+  id              String    @id @default(cuid())
+  memberAccountId Int       @unique
+  email           String
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
+  windowStartedAt DateTime  @default(now())
+  sendCount       Int       @default(1)
+
+  memberAccount MemberAccount @relation(fields: [memberAccountId], references: [id], onDelete: Cascade)
+  Member        Member?       @relation(fields: [memberId], references: [id])
+  memberId      Int?
+}
+
+model UserEmailVerification {
+  id              String    @id @default(cuid())
+  userId          Int       @unique
+  email           String
+  codeHash        String
+  expiresAt       DateTime
+  attempts        Int       @default(0)
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
+  windowStartedAt DateTime  @default(now())
+  sendCount       Int       @default(1)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model Exercise {
-  id            Int             @id @default(autoincrement())
-  name          String
-  muscleGroup   String
-  difficulty    Difficulty
-  description   String
-  imageUrl      String?
-  active        Boolean         @default(true)
-  createdAt     DateTime        @default(now())
-  workoutItems  WorkoutExercise[]
+  id           Int               @id @default(autoincrement())
+  name         String
+  muscleGroup  String
+  difficulty   Difficulty
+  description  String
+  imageUrl     String?
+  active       Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  workoutItems WorkoutExercise[]
 }
 
 model Workout {
@@ -113,14 +160,14 @@ model Class {
 }
 
 model PasswordReset {
-  userId          Int      @id
+  userId          Int       @id
   email           String
-  tokenHash       String   @unique
+  tokenHash       String    @unique
   expiresAt       DateTime
   usedAt          DateTime?
-  createdAt       DateTime @default(now())
-  windowStartedAt DateTime @default(now())
-  sendCount       Int      @default(1)
+  createdAt       DateTime  @default(now())
+  windowStartedAt DateTime  @default(now())
+  sendCount       Int       @default(1)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
