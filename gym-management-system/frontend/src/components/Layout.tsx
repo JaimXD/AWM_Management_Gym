@@ -5,6 +5,7 @@ import {
   Dumbbell,
   ClipboardList,
   CalendarDays,
+  CreditCard,
   LogOut,
   Zap,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const navItems = [
   { to: "/ejercicios", label: "Ejercicios", icon: Dumbbell },
   { to: "/rutinas", label: "Rutinas", icon: ClipboardList },
   { to: "/clases", label: "Clases", icon: CalendarDays },
+  { to: "/membresias", label: "Membresías", icon: CreditCard },
 ];
 
 

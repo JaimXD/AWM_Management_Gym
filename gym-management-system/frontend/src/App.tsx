@@ -9,6 +9,7 @@ import Rutinas from "./pages/Rutinas";
 import Clases from "./pages/Clases";
 import PasswordRecovery from "./pages/PasswordRecovery";
 import RegistrarUsuario from "./pages/RegistrarUsuario";
+import Membresias from "./pages/Membresias";
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/ejercicios" element={<Ejercicios />} />
           <Route path="/rutinas" element={<Rutinas />} />
           <Route path="/clases" element={<Clases />} />
+          <Route path="/membresias" element={<Membresias />} />
         </Route>
       </Route>
     </Routes>

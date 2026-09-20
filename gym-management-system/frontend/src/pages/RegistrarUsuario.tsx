@@ -15,11 +15,26 @@ import {
   isValidEmail,
   removeEmojis,
 } from "../utils/inputValidation";
+import RegistrationEmailVerificationModal from
+  "../components/RegistrationEmailVerificationModal";
 
 const publicApi = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:4000/api",
   timeout: 30_000,
 });
+
+interface RegisterResponse {
+  message: string;
+  delivery: "accepted" | "unconfirmed";
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: {
+      name: string;
+    };
+  };
+}
 
 export default function RegistrarUsuario() {
   const [name, setName] = useState("");
@@ -29,6 +44,10 @@ export default function RegistrarUsuario() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [verification, setVerification] = useState<{
+    userId: number;
+    email: string;
+  } | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,16 +100,24 @@ export default function RegistrarUsuario() {
     setBusy(true);
 
     try {
-      await publicApi.post("/auth/register", {
-        name: cleanName,
-        email: normalizedEmail,
-        password: cleanPassword,
-      });
 
-      setEmail(normalizedEmail);
+      const { data } = await publicApi.post<RegisterResponse>(
+        "/auth/register",
+        {
+          name: cleanName,
+          email: normalizedEmail,
+          password: cleanPassword,
+        }
+      );
+
       setPassword("");
       setConfirmation("");
-      setDone(true);
+
+      setVerification({
+        userId: data.user.id,
+        email: data.user.email,
+      });
+
     } catch (err: unknown) {
       setError(
         isAxiosError<{ message?: string }>(err)
@@ -344,6 +371,20 @@ export default function RegistrarUsuario() {
           </div>
         </section>
       </div>
+      {verification && (
+        <RegistrationEmailVerificationModal
+          userId={verification.userId}
+          email={verification.email}
+          onClose={() => setVerification(null)}
+          onVerified={() => {
+            const verifiedEmail = verification.email;
+
+            setVerification(null);
+            setEmail(verifiedEmail);
+            setDone(true);
+          }}
+        />
+      )}
     </main>
   );
 }
