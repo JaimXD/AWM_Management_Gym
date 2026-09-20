@@ -3,8 +3,19 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 import { authMiddleware } from "../middleware/auth";
+import { rateLimit } from "express-rate-limit";
 
 const router = Router();
+
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: "Demasiadas solicitudes. Intenta nuevamente en 15 minutos.",
+  },
+});
 
 router.post("/login", async (req, res) => {
   try {
@@ -53,13 +64,7 @@ router.get("/me", authMiddleware, (req, res) => {
 
 
 // POST /api/auth/register
-router.post("/register", authMiddleware, async (req, res) => {
-  if (req.user?.role !== "ADMIN") {
-    return res.status(403).json({
-      message: "Solo un administrador puede registrar usuarios",
-    });
-  }
-
+router.post("/register", registerLimiter, async (req, res) => {
   const { name, email, password } = req.body ?? {};
 
   if (
