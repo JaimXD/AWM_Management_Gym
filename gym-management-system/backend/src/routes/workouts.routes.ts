@@ -44,7 +44,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// body: { name, memberId, items: [{ exerciseId, sets, reps, weight }] }
+// body: { name, memberId, items: [{ exerciseId, dayOfWeek, sets, reps, weight }] }
 router.post("/", async (req, res) => {
   try {
     const { name, memberId, items } = req.body;
@@ -55,6 +55,15 @@ router.post("/", async (req, res) => {
       });
     }
 
+    if (items.some((item: any) => {
+      const dayOfWeek = item.dayOfWeek === undefined ? 1 : Number(item.dayOfWeek);
+      return !Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7;
+    })) {
+      return res.status(400).json({
+        message: "dayOfWeek debe ser un entero entre 1 y 7",
+      });
+    }
+
     const workout = await prisma.workout.create({
       data: {
         name,
@@ -62,6 +71,7 @@ router.post("/", async (req, res) => {
         items: {
           create: items.map((it: any) => ({
             exerciseId: Number(it.exerciseId),
+            dayOfWeek: it.dayOfWeek === undefined ? 1 : Number(it.dayOfWeek),
             sets: Number(it.sets),
             reps: Number(it.reps),
             weight: Number(it.weight),

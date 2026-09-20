@@ -20,14 +20,18 @@ router.get("/", async (_req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const { name, muscleGroup, difficulty, description, imageUrl } = req.body;
+    const { name, muscleGroup, difficulty, description, imageUrl, mediaType } = req.body;
 
     if (!name || !muscleGroup || !difficulty || !description) {
       return res.status(400).json({ message: "Todos los campos son obligatorios" });
     }
 
+    if (mediaType !== undefined && !["IMAGE", "GIF"].includes(mediaType)) {
+      return res.status(400).json({ message: "El tipo de recurso debe ser IMAGE o GIF" });
+    }
+
     const exercise = await prisma.exercise.create({
-      data: { name, muscleGroup, difficulty, description, imageUrl },
+      data: { name, muscleGroup, difficulty, description, imageUrl, mediaType },
     });
 
     return res.status(201).json(exercise);
@@ -40,11 +44,15 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { name, muscleGroup, difficulty, description, imageUrl } = req.body;
+    const { name, muscleGroup, difficulty, description, imageUrl, mediaType } = req.body;
+
+    if (mediaType !== undefined && !["IMAGE", "GIF"].includes(mediaType)) {
+      return res.status(400).json({ message: "El tipo de recurso debe ser IMAGE o GIF" });
+    }
 
     const exercise = await prisma.exercise.update({
       where: { id },
-      data: { name, muscleGroup, difficulty, description, imageUrl },
+      data: { name, muscleGroup, difficulty, description, imageUrl, mediaType },
     });
 
     return res.json(exercise);

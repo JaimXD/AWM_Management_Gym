@@ -9,9 +9,19 @@ router.use(authMiddleware);
 router.get("/", async (_req, res) => {
   try {
     const classes = await prisma.class.findMany({
+      include: {
+        _count: {
+          select: {
+            reservations: { where: { status: "RESERVADA" } },
+          },
+        },
+      },
       orderBy: { date: "asc" },
     });
-    return res.json(classes);
+    return res.json(classes.map(({ _count, ...gymClass }) => ({
+      ...gymClass,
+      booked: _count.reservations,
+    })));
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Error al listar clases" });
@@ -64,29 +74,117 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// Reservar cupo de prueba (opcional, simple)
-router.patch("/:id/book", async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const existing = await prisma.class.findUnique({ where: { id } });
+router.get("/:id/reservations", async (req, res) => {
+  const id = Number(req.params.id);
 
-    if (!existing) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return res.status(400).json({ message: "ID de clase inválido" });
+  }
+
+  try {
+    const reservations = await prisma.classReservation.findMany({
+      where: { classId: id },
+      include: { member: true },
+      orderBy: { bookedAt: "asc" },
+    });
+
+    const gymClass = await prisma.class.findUnique({ where: { id } });
+    if (!gymClass) {
       return res.status(404).json({ message: "Clase no encontrada" });
     }
 
-    if (existing.booked >= existing.capacity) {
-      return res.status(400).json({ message: "No hay cupos disponibles" });
+    return res.json(reservations);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "No se pudieron listar las reservas" });
+  }
+});
+
+router.patch("/:classId/reservations/:reservationId/attendance", async (req, res) => {
+  const classId = Number(req.params.classId);
+  const reservationId = Number(req.params.reservationId);
+
+  if (
+    !Number.isSafeInteger(classId) || classId <= 0 ||
+    !Number.isSafeInteger(reservationId) || reservationId <= 0
+  ) {
+    return res.status(400).json({ message: "Identificador de reserva inválido" });
+  }
+
+  try {
+    const reservation = await prisma.classReservation.findFirst({
+      where: { id: reservationId, classId },
+    });
+
+    if (!reservation) {
+      return res.status(404).json({ message: "Reserva no encontrada" });
     }
 
-    const updated = await prisma.class.update({
-      where: { id },
-      data: { booked: existing.booked + 1 },
+    if (reservation.status === "CANCELADA") {
+      return res.status(409).json({ message: "Una reserva cancelada no puede marcarse como asistencia" });
+    }
+
+    const updated = await prisma.classReservation.update({
+      where: { id: reservationId },
+      data: {
+        status: "ASISTIO",
+        attendedAt: new Date(),
+      },
+      include: { member: true, class: true },
     });
 
     return res.json(updated);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Error al reservar cupo" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "No se pudo registrar la asistencia" });
+  }
+});
+
+router.delete("/:classId/reservations/:reservationId", async (req, res) => {
+  const classId = Number(req.params.classId);
+  const reservationId = Number(req.params.reservationId);
+
+  if (
+    !Number.isSafeInteger(classId) || classId <= 0 ||
+    !Number.isSafeInteger(reservationId) || reservationId <= 0
+  ) {
+    return res.status(400).json({ message: "Identificador de reserva inválido" });
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const gymClass = await tx.class.findUnique({ where: { id: classId } });
+      const reservation = await tx.classReservation.findFirst({
+        where: { id: reservationId, classId },
+      });
+
+      if (!gymClass || !reservation) return { error: "NOT_FOUND" as const };
+      if (reservation.status !== "RESERVADA") return { error: "NOT_ACTIVE" as const };
+
+      await tx.classReservation.update({
+        where: { id: reservationId },
+        data: { status: "CANCELADA", cancelledAt: new Date() },
+      });
+      await tx.class.update({
+        where: { id: classId },
+        data: { booked: { decrement: 1 } },
+      });
+
+      return { ok: true };
+    });
+
+    if ("error" in result) {
+      return res.status(result.error === "NOT_FOUND" ? 404 : 409).json({
+        message: result.error === "NOT_FOUND"
+          ? "Reserva o clase no encontrada"
+          : "La reserva ya no está activa",
+      });
+    }
+
+    return res.json({ message: "Reserva cancelada correctamente" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "No se pudo cancelar la reserva" });
   }
 });
 

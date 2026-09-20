@@ -18,6 +18,11 @@ enum Difficulty {
   AVANZADO
 }
 
+enum ExerciseMediaType {
+  IMAGE
+  GIF
+}
+
 enum MemberStatus {
   ACTIVO
   INACTIVO
@@ -139,6 +144,7 @@ model Exercise {
   difficulty   Difficulty
   description  String
   imageUrl     String?
+  mediaType    ExerciseMediaType @default(IMAGE)
   active       Boolean           @default(true)
   createdAt    DateTime          @default(now())
   workoutItems WorkoutExercise[]
@@ -154,14 +160,28 @@ model Workout {
 }
 
 model WorkoutExercise {
-  id         Int      @id @default(autoincrement())
-  workoutId  Int
-  exerciseId Int
-  sets       Int
-  reps       Int
-  weight     Float
-  workout    Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
-  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+  id          Int                         @id @default(autoincrement())
+  workoutId   Int
+  exerciseId  Int
+  dayOfWeek   Int                         @default(1)
+  sets        Int
+  reps        Int
+  weight      Float
+  workout     Workout                     @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exercise    Exercise                    @relation(fields: [exerciseId], references: [id])
+  completions WorkoutExerciseCompletion[]
+}
+
+model WorkoutExerciseCompletion {
+  id                Int      @id @default(autoincrement())
+  workoutExerciseId Int
+  completedDate     DateTime @db.Date
+  completedAt       DateTime @default(now())
+
+  workoutExercise WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([workoutExerciseId, completedDate])
+  @@index([completedDate])
 }
 
 model Class {
@@ -197,6 +217,7 @@ model ClassReservation {
   status      ReservationStatus @default(RESERVADA)
   bookedAt    DateTime          @default(now())
   cancelledAt DateTime?
+  attendedAt  DateTime?
 
   class  Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
