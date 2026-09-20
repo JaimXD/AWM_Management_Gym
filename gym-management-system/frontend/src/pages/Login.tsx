@@ -1,7 +1,8 @@
 import { useState, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Zap, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+
 
 export default function Login() {
   const { login, loading } = useAuth();
@@ -74,6 +75,13 @@ export default function Login() {
             {loading && <Loader2 size={16} className="animate-spin" />}
             {loading ? "Ingresando..." : "Ingresar"}
           </button>
+
+          <Link
+            to="/recuperar-password"
+            className="mt-4 block text-center text-sm text-brand-400 hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
 
           <div className="mt-6 rounded-xl bg-ink-900 border border-white/5 p-4 text-xs text-white/40 space-y-1.5">
             <p className="font-semibold text-white/60 mb-2">Credenciales de prueba</p>

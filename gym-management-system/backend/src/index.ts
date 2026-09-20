@@ -8,6 +8,7 @@ import exercisesRoutes from "./routes/exercises.routes";
 import workoutsRoutes from "./routes/workouts.routes";
 import classesRoutes from "./routes/classes.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
+import passwordResetRoutes from "./routes/passwordReset.routes";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -24,6 +25,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/auth", passwordResetRoutes);
 app.use("/api/members", membersRoutes);
 app.use("/api/exercises", exercisesRoutes);
 app.use("/api/workouts", workoutsRoutes);

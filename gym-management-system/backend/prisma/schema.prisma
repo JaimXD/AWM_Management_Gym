@@ -37,6 +37,8 @@ model User {
   roleId    Int
   role      Role     @relation(fields: [roleId], references: [id])
   createdAt DateTime @default(now())
+  tokenVersion  Int            @default(0)
+  passwordReset PasswordReset?
 }
 
 model Member {
@@ -91,4 +93,17 @@ model Class {
   capacity   Int
   booked     Int      @default(0)
   createdAt  DateTime @default(now())
+}
+
+model PasswordReset {
+  userId          Int      @id
+  email           String
+  tokenHash       String   @unique
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime @default(now())
+  windowStartedAt DateTime @default(now())
+  sendCount       Int      @default(1)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -7,12 +7,16 @@ import Socios from "./pages/Socios";
 import Ejercicios from "./pages/Ejercicios";
 import Rutinas from "./pages/Rutinas";
 import Clases from "./pages/Clases";
+import PasswordRecovery from "./pages/PasswordRecovery";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-
+      <Route
+        path="/recuperar-password"
+        element={<PasswordRecovery />}
+      />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
